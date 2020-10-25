@@ -1,0 +1,126 @@
+---
+title: "Prediction Assignment : Human Activity Recognition"
+author: "Andyintae"
+date: '2020 10 25 '
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Load packages  
+```{r}
+library(tidyverse)
+library(caret)
+library(rpart)
+library(randomForest)
+```
+
+
+# Download files  
+```{r}
+
+url_train <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+url_test  <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+download.file(url_train, destfile = "training.csv")
+download.file(url_test, destfile = "testing.csv")
+
+train <- read.csv("training.csv")
+test  <- read.csv("testing.csv")
+
+```
+
+# data slicing for cross validation (within train data)  
+```{r}
+inTrain  <- createDataPartition(train$classe, p = 3/4)[[1]]
+training <- train[ inTrain,]
+testing  <- train[-inTrain,]
+dim(training)
+dim(testing) 
+
+
+```
+
+
+# Removing variables which have mostly NAs  
+```{r}
+isna <- function(x){mean(is.na(x))}
+sapply(training, isna) %>% table()
+# 67 variables have NA, 97.93% 
+
+na_97 <- sapply(train, isna) > 0.97
+remain <- names(training[, na_97 == FALSE])
+remove <- names(training[, na_97 == TRUE])
+
+train_set <- training %>% select(all_of(remain))
+dim(train_set)
+```
+
+
+# Removing zero covariates  
+```{r}
+nsv <- nearZeroVar(train_set,saveMetrics=TRUE)
+nsv %>% filter(nzv == TRUE)
+nsv <- nearZeroVar(train_set)
+train_set <- train_set[, -nsv]
+dim(train_set)
+```
+
+
+# Remove id and timestamps  
+```{r}
+train_set <- train_set[,-(1:5)]
+```
+
+
+# fit models  
+```{r include=FALSE}
+set.seed(1235)
+
+fit_rf <- train(classe ~ ., data = train_set, method = "rf")  
+fit_gbm <- train(classe ~ . , data = train_set, method = "gbm")
+fit_lda <- train(classe ~ . , data = train_set, method = "lda")
+```
+
+```{r}
+fit_rf
+fit_gbm
+fit_lda
+```
+
+
+
+# Cross validation
+```{r}
+pred_rf  <- predict(fit_rf , newdata = testing)
+pred_gbm <- predict(fit_gbm, newdata = testing)
+pred_lda <- predict(fit_lda, newdata = testing)
+
+testing$classe <- as.factor(testing$classe)
+confusionMatrix(pred_rf,  testing$classe)
+confusionMatrix(pred_gbm, testing$classe)
+confusionMatrix(pred_lda, testing$classe)
+```
+
+
+# why I made the choices :  
+ I choose Random forest model model because it shows the highest accuracy '99.82%'. 
+ However it took longer to build the rf model than the others.  
+
+
+# predict 20 different test cases  
+```{r}
+pred_rf_final <- predict(fit_rf, newdata = test)
+
+# The Answer is : 
+pred_rf_final
+```
+
+[End of analysis.]  
+
+
+
+
+
+
